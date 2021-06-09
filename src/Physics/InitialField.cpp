@@ -2,7 +2,11 @@
 #include <array>
 #include <numeric>
 
+#ifdef USE_POROELASTIC
 #include <armadillo>
+#else
+#include <Eigen/Eigenvalues>
+#endif
 
 #include <Kernels/precision.hpp>
 #include <Physics/InitialField.h>
@@ -22,13 +26,49 @@ seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData, d
 {
   assert(m_varField.size() == m_ampField.size());
 
-  std::complex<double> planeWaveOperator[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES];
-  seissol::model::getPlaneWaveOperator(materialData.local, m_kVec.data(), planeWaveOperator);
+  std::array<std::complex<double>, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES> planeWaveOperator;
+  seissol::model::getPlaneWaveOperator(materialData.local, m_kVec.data(), planeWaveOperator.data());
+#ifdef USE_POROELASTIC
+  computeEigenvaluesWithArmadillo(planeWaveOperator);
+#else
+  computeEigenvaluesWithEigen3(planeWaveOperator);
+#endif
+}
 
+void seissol::physics::Planarwave::computeEigenvaluesWithEigen3(std::array<std::complex<double>, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES> M) {
+  using Matrix = Eigen::Matrix<std::complex<double>, NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES, Eigen::ColMajor>;
+  Matrix op(M.data());
+  Eigen::ComplexEigenSolver<Matrix> ces;
+  ces.compute(op);
+  
+  //sort eigenvalues so that we know which eigenvalue corresponds to which mode
+  auto eigenvalues = ces.eigenvalues();
+  std::vector<size_t> sortedIndices(NUMBER_OF_QUANTITIES);
+  std::iota(sortedIndices.begin(), sortedIndices.end(), 0);
+  std::sort(sortedIndices.begin(), sortedIndices.end(), [&eigenvalues](size_t a, size_t b) {
+    return eigenvalues[a].real() < eigenvalues[b].real();
+  });
+
+  for (size_t i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
+    m_lambdaA[i] = eigenvalues(sortedIndices[i],0);
+  }
+
+  auto eigenvectors = ces.eigenvectors();
+
+  auto R = yateto::DenseTensorView<2,std::complex<double>>(const_cast<std::complex<double>*>(m_eigenvectors.data()), {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
+  for (size_t j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
+    for (size_t i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
+      R(i,j) = eigenvectors(i,sortedIndices[j]);
+    }
+  }
+  
+}
+void seissol::physics::Planarwave::computeEigenvaluesWithArmadillo(std::array<std::complex<double>, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES> M) {
+#ifdef USE_POROELASTIC
   using Matrix = typename arma::Mat<std::complex<double>>::template fixed<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES>;
   using Vector = typename arma::Col<std::complex<double>>::template fixed<NUMBER_OF_QUANTITIES>;
 
-  Matrix op(planeWaveOperator);
+  Matrix op(M.data());
   Matrix arma_eigenvectors(arma::fill::zeros);
   Vector arma_eigenvalues(arma::fill::zeros);
   arma::eig_gen(arma_eigenvalues, arma_eigenvectors, op, "balance");
@@ -50,6 +90,7 @@ seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData, d
       R(i,j) = arma_eigenvectors(i,sortedIndices[j]);
     }
   }
+#endif
 }
 
 void seissol::physics::Planarwave::evaluate(double time,

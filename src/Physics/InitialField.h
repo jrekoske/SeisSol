@@ -46,6 +46,10 @@ namespace seissol {
       const std::array<double, 3>                       m_kVec;
       std::array<std::complex<double>, NUMBER_OF_QUANTITIES>  m_lambdaA;
       std::array<std::complex<double>, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES> m_eigenvectors;
+
+    private:
+      void computeEigenvaluesWithEigen3(std::array<std::complex<double>, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES> M);
+      void computeEigenvaluesWithArmadillo(std::array<std::complex<double>, NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES> M);
     };
 
     //superimpose three planar waves travelling into different directions
