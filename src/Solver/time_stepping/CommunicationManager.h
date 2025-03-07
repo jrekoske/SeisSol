@@ -1,24 +1,32 @@
-#ifndef SEISSOL_COMMUNICATIONMANAGER_H
-#define SEISSOL_COMMUNICATIONMANAGER_H
+// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_SOLVER_TIME_STEPPING_COMMUNICATIONMANAGER_H_
+#define SEISSOL_SRC_SOLVER_TIME_STEPPING_COMMUNICATIONMANAGER_H_
 
 #include <atomic>
 #include <memory>
 #include <thread>
 #include <vector>
-#include <Parallel/Pin.h>
+#include "Parallel/Pin.h"
+#include "Solver/time_stepping/AbstractGhostTimeCluster.h"
 
-#include "Solver/time_stepping/GhostTimeCluster.h"
 
 namespace seissol::time_stepping {
-
 class AbstractCommunicationManager {
 public:
-  using ghostClusters_t = std::vector<std::unique_ptr<GhostTimeCluster>>;
+  using ghostClusters_t = std::vector<std::unique_ptr<AbstractGhostTimeCluster>>;
   virtual void progression() = 0;
   [[nodiscard]] virtual bool checkIfFinished() const = 0;
   virtual void reset(double newSyncTime);
 
   virtual ~AbstractCommunicationManager() = default;
+
+  ghostClusters_t* getGhostClusters();
 
 protected:
   explicit AbstractCommunicationManager(ghostClusters_t ghostClusters);
@@ -53,4 +61,6 @@ private:
 
 } // end namespace seissol::time_stepping
 
-#endif //SEISSOL_COMMUNICATIONMANAGER_H
+
+#endif // SEISSOL_SRC_SOLVER_TIME_STEPPING_COMMUNICATIONMANAGER_H_
+

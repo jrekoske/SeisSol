@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include <iostream>
 #include <cmath>
 #include <memory>
@@ -72,13 +79,15 @@ long ClusterTimes::computeStepsUntilSyncTime(double oldSyncTime, double newSyncT
   return static_cast<long>(std::ceil(timeStepRate*timeDiff/maxTimeStepSize));
 }
 
-NeighborCluster::NeighborCluster(double maxTimeStepSize, int timeStepRate) {
+NeighborCluster::NeighborCluster(double maxTimeStepSize, int timeStepRate, Executor neighborExecutor) {
   ct.maxTimeStepSize = maxTimeStepSize;
   ct.timeStepRate = timeStepRate;
+  executor = neighborExecutor;
 }
 
-DynamicRuptureScheduler::DynamicRuptureScheduler(long numberOfDynamicRuptureFaces) :
-    numberOfDynamicRuptureFaces(numberOfDynamicRuptureFaces) {}
+DynamicRuptureScheduler::DynamicRuptureScheduler(long numberOfDynamicRuptureFaces, bool isFirstDynamicRuptureCluster) :
+    numberOfDynamicRuptureFaces(numberOfDynamicRuptureFaces),
+      firstClusterWithDynamicRuptureFaces(isFirstDynamicRuptureCluster) {}
 
 bool DynamicRuptureScheduler::mayComputeInterior(long curCorrectionSteps) const {
   return curCorrectionSteps > lastCorrectionStepsInterior;
@@ -104,6 +113,11 @@ void DynamicRuptureScheduler::setLastFaultOutput(long steps) {
 
 bool DynamicRuptureScheduler::hasDynamicRuptureFaces() const {
   return numberOfDynamicRuptureFaces > 0;
+}
+
+
+bool DynamicRuptureScheduler::isFirstClusterWithDynamicRuptureFaces() const {
+  return firstClusterWithDynamicRuptureFaces;
 }
 } // namespace seissol::time_stepping
 
